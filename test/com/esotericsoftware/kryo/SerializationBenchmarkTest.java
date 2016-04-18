@@ -28,6 +28,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutput;
 import java.io.ObjectOutputStream;
 import java.util.Arrays;
+import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
 //import org.gridgain.grid.marshaller.GridMarshaller;
@@ -50,7 +51,7 @@ public class SerializationBenchmarkTest extends KryoTestCase {
 	private static final int WARMUP_ITERATIONS = 1000;
 
 	/** Number of runs. */
-	private static final int RUN_CNT = 1;
+	private static final int RUN_CNT = 10;
 
 	/** Number of iterations. Set it to something rather big for obtaining meaningful results */
 // private static final int ITER_CNT = 200000;
@@ -58,22 +59,17 @@ public class SerializationBenchmarkTest extends KryoTestCase {
 
 	private static final int SLEEP_BETWEEN_RUNS = 100;
 	
-	private static final int OUTPUT_BUFFER_SIZE = 4096 * 10 * 4;
+	private static final int OUTPUT_BUFFER_SIZE = 4096 * 1000 * 2;
 
-	SampleObject obj = createObject();
+	SampleObject obj = createObject(1000000);
 
-	private static SampleObject createObject () {
-		long[] longArr = new long[3000];
-
-		for (int i = 0; i < longArr.length; i++)
-			longArr[i] = i;
-
-		double[] dblArr = new double[3000];
-
-		for (int i = 0; i < dblArr.length; i++)
-			dblArr[i] = 0.1 * i;
-
-		return new SampleObject(123, 123.456f, (short)321, longArr, dblArr);
+	private static SampleObject createObject(int arraySize) {
+		int[] array = new int[arraySize];
+		Random random = new Random();
+		for (int i = 0; i < arraySize; i++){
+			array[i] = random.nextInt();
+		}
+		return new SampleObject("test", array);
 	}
 
 // public static void main(String[] args) throws Exception {
@@ -379,6 +375,7 @@ public class SerializationBenchmarkTest extends KryoTestCase {
 	private void runKryoSerializationWithoutTryCatch (final int RUN_CNT, final int ITER_CNT, boolean outputResults)
 		throws Exception {
 		Kryo marsh = new Kryo();
+		marsh.register(int[].class);
 		marsh.register(SampleObject.class, 40);
 
 		long avgDur = 0;
@@ -433,6 +430,7 @@ public class SerializationBenchmarkTest extends KryoTestCase {
 	private void runKryoSerializationWithoutTryCatchWithFastStreams (final int RUN_CNT, final int ITER_CNT, boolean outputResults)
 		throws Exception {
 		Kryo marsh = new Kryo();
+		marsh.register(int[].class);
 		marsh.register(SampleObject.class, 40);
 
 		long avgDur = 0;
@@ -489,8 +487,7 @@ public class SerializationBenchmarkTest extends KryoTestCase {
 		throws Exception {
 		Kryo marsh = new Kryo();
 		marsh.setRegistrationRequired(true);
-		marsh.register(double[].class, 30);
-		marsh.register(long[].class, 31);
+		marsh.register(int[].class);
 		// Explicitly tell to use Unsafe-based serializer
 		marsh.register(SampleObject.class, new FieldSerializer<SampleObject>(marsh, SampleObject.class), 40);
 
@@ -552,8 +549,7 @@ public class SerializationBenchmarkTest extends KryoTestCase {
 		throws Exception {
 		Kryo marsh = new Kryo();
 		marsh.setRegistrationRequired(true);
-		marsh.register(double[].class, 30);
-		marsh.register(long[].class, 31);
+		marsh.register(int[].class);
 		// Explicitly tell to use Unsafe-based serializer
 		marsh.register(SampleObject.class, new FieldSerializer<SampleObject>(marsh, SampleObject.class), 40);
 
@@ -617,8 +613,7 @@ public class SerializationBenchmarkTest extends KryoTestCase {
 		Kryo marsh = new Kryo();
 		kryo.setReferences(false);
 		marsh.setRegistrationRequired(true);
-		marsh.register(double[].class, 30);
-		marsh.register(long[].class, 31);
+		marsh.register(int[].class);
 		// Explicitly tell to use Unsafe-based serializer
 		marsh.register(SampleObject.class, new FieldSerializer<SampleObject>(marsh, SampleObject.class), 40);
 
@@ -725,84 +720,63 @@ public class SerializationBenchmarkTest extends KryoTestCase {
 	}
 
 	private static class SampleObject implements Externalizable, KryoSerializable {
-		private int intVal;
-		private float floatVal;
-		private Short shortVal;
-		private long[] longArr;
-		private double[] dblArr;
-		private SampleObject selfRef;
+		private String name;
+		private int[] array;
 
 		public SampleObject () {
 		}
 
-		SampleObject (int intVal, float floatVal, Short shortVal, long[] longArr, double[] dblArr) {
-			this.intVal = intVal;
-			this.floatVal = floatVal;
-			this.shortVal = shortVal;
-			this.longArr = longArr;
-			this.dblArr = dblArr;
-
-			selfRef = this;
+		SampleObject (String name, int[] array) {
+			this.name = name;
+			this.array = array;
 		}
 
-		/** {@inheritDoc} */
 		@Override
-		public boolean equals (Object other) {
-			if (this == other) return true;
+		public boolean equals(Object o) {
+			if (this == o) return true;
+			if (o == null || getClass() != o.getClass()) return false;
 
-			if (other == null || getClass() != other.getClass()) return false;
+			SampleObject that = (SampleObject) o;
 
-			SampleObject obj = (SampleObject)other;
+			return name.equals(that.name) && Arrays.equals(array, that.array);
 
-			assert this == selfRef;
-			assert obj == obj.selfRef;
+		}
 
-			return intVal == obj.intVal && floatVal == obj.floatVal && shortVal.equals(obj.shortVal)
-				&& Arrays.equals(dblArr, obj.dblArr) && Arrays.equals(longArr, obj.longArr);
+		@Override
+		public int hashCode() {
+			int result = name.hashCode();
+			result = 31 * result + Arrays.hashCode(array);
+			return result;
 		}
 
 		// Required by Kryo serialization.
 		@Override
 		public void read (Kryo kryo, Input in) {
-			intVal = kryo.readObject(in, Integer.class);
-			floatVal = kryo.readObject(in, Float.class);
-			shortVal = kryo.readObject(in, Short.class);
-			longArr = kryo.readObject(in, long[].class);
-			dblArr = kryo.readObject(in, double[].class);
-			selfRef = kryo.readObject(in, SampleObject.class);
-		}
-
-		// Required by Java Externalizable.
-		@Override
-		public void readExternal (ObjectInput in) throws IOException, ClassNotFoundException {
-			intVal = in.readInt();
-			floatVal = in.readFloat();
-			shortVal = in.readShort();
-			longArr = (long[])in.readObject();
-			dblArr = (double[])in.readObject();
-			selfRef = (SampleObject)in.readObject();
+			name = in.readString();
+			int length = in.readInt(true);
+			array = in.readInts(length);
 		}
 
 		// Required by Kryo serialization.
 		@Override
 		public void write (Kryo kryo, Output out) {
-			kryo.writeObject(out, intVal);
-			kryo.writeObject(out, floatVal);
-			kryo.writeObject(out, shortVal);
-			kryo.writeObject(out, longArr);
-			kryo.writeObject(out, dblArr);
-			kryo.writeObject(out, selfRef);
+			out.writeString(name);
+			out.writeInt(array.length, true);
+			out.writeInts(array);
+		}
+
+		// Required by Java Externalizable.
+		@Override
+		public void readExternal (ObjectInput in) throws IOException, ClassNotFoundException {
+			name = in.readUTF();
+			array = (int[])in.readObject();
 		}
 
 		// Required by Java Externalizable.
 		@Override
 		public void writeExternal (ObjectOutput out) throws IOException {
-			out.writeInt(intVal);
-			out.writeFloat(floatVal);
-			out.writeShort(shortVal);
-			out.writeObject(longArr);
-			out.writeObject(dblArr);
-			out.writeObject(selfRef);
+			out.writeUTF(name);
+			out.writeObject(array);
 		}
 	}
 }
