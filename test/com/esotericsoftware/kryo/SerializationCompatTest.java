@@ -85,7 +85,7 @@ public class SerializationCompatTest extends KryoTestCase {
     @Override
     protected void setUp() throws Exception {
         super.setUp();
-
+        kryo.getFieldSerializerConfig().setOptimizedGenerics(true);
         kryo.setInstantiatorStrategy(new Kryo.DefaultInstantiatorStrategy(new StdInstantiatorStrategy()));
         kryo.setReferences(true);
         kryo.setRegistrationRequired(false);
@@ -109,9 +109,24 @@ public class SerializationCompatTest extends KryoTestCase {
                 EXPECTED_DEFAULT_SERIALIZER_COUNT, defaultSerializers.size());
     }
 
-    public void testStandard () throws Exception {
+    public void testStandardOptGenerics () throws Exception {
+   	  kryo.getFieldSerializerConfig().setOptimizedGenerics(true);
         runTests(
-                "standard",
+                "standard-opt-generics",
+                new Function1<File, Input>() {
+                    public Input apply(File file) throws FileNotFoundException {
+                        return new Input(new FileInputStream(file));
+                    }
+                },
+                new Function1<File, Output>() {
+                    public Output apply(File file) throws Exception {
+                        return new Output(new FileOutputStream(file));
+                    }
+                }
+        );
+        kryo.getFieldSerializerConfig().setOptimizedGenerics(false);
+        runTests(
+                "standard-nonopt-generics",
                 new Function1<File, Input>() {
                     public Input apply(File file) throws FileNotFoundException {
                         return new Input(new FileInputStream(file));
@@ -126,8 +141,9 @@ public class SerializationCompatTest extends KryoTestCase {
     }
 
     public void testByteBuffer () throws Exception {
+   	  kryo.getFieldSerializerConfig().setOptimizedGenerics(true);
         runTests(
-                "bytebuffer",
+                "bytebuffer-opt-generics",
                 new Function1<File, Input>() {
                     public Input apply(File file) throws FileNotFoundException {
                         return new ByteBufferInput(new FileInputStream(file));
@@ -139,11 +155,26 @@ public class SerializationCompatTest extends KryoTestCase {
                     }
                 }
         );
-    }
+        kryo.getFieldSerializerConfig().setOptimizedGenerics(false);
+        runTests(
+                "bytebuffer-nonopt-generics",
+                new Function1<File, Input>() {
+                    public Input apply(File file) throws FileNotFoundException {
+                        return new ByteBufferInput(new FileInputStream(file));
+                    }
+                },
+                new Function1<File, Output>() {
+                    public Output apply(File file) throws Exception {
+                        return new ByteBufferOutput(new FileOutputStream(file));
+                    }
+                }
+        );
+   }
 
     public void testFast () throws Exception {
+   	  kryo.getFieldSerializerConfig().setOptimizedGenerics(true);
         runTests(
-                "fast",
+                "fast-opt-generics",
                 new Function1<File, Input>() {
                     public Input apply(File file) throws FileNotFoundException {
                         return new FastInput(new FileInputStream(file));
@@ -155,11 +186,26 @@ public class SerializationCompatTest extends KryoTestCase {
                     }
                 }
         );
-    }
+        kryo.getFieldSerializerConfig().setOptimizedGenerics(false);
+        runTests(
+                "fast-nonopt-generics",
+                new Function1<File, Input>() {
+                    public Input apply(File file) throws FileNotFoundException {
+                        return new FastInput(new FileInputStream(file));
+                    }
+                },
+                new Function1<File, Output>() {
+                    public Output apply(File file) throws Exception {
+                        return new FastOutput(new FileOutputStream(file));
+                    }
+                }
+        );
+   }
 
     public void testUnsafe () throws Exception {
+   	  kryo.getFieldSerializerConfig().setOptimizedGenerics(true);
         runTests(
-                "unsafe-" + ENDIANNESS,
+                "unsafe-opt-generics-" + ENDIANNESS,
                 new Function1<File, Input>() {
                     public Input apply(File file) throws FileNotFoundException {
                         return new UnsafeInput(new FileInputStream(file));
@@ -171,11 +217,26 @@ public class SerializationCompatTest extends KryoTestCase {
                     }
                 }
         );
-    }
+        kryo.getFieldSerializerConfig().setOptimizedGenerics(false);
+        runTests(
+                "unsafe-nonopt-generics-" + ENDIANNESS,
+                new Function1<File, Input>() {
+                    public Input apply(File file) throws FileNotFoundException {
+                        return new UnsafeInput(new FileInputStream(file));
+                    }
+                },
+                new Function1<File, Output>() {
+                    public Output apply(File file) throws Exception {
+                        return new UnsafeOutput(new FileOutputStream(file));
+                    }
+                }
+        );
+   }
 
     public void testUnsafeMemory () throws Exception {
+   	  kryo.getFieldSerializerConfig().setOptimizedGenerics(true);
         runTests(
-                "unsafeMemory-" + ENDIANNESS,
+                "unsafeMemory-opt-generics-" + ENDIANNESS,
                 new Function1<File, Input>() {
                     public Input apply(File file) throws FileNotFoundException {
                         return new UnsafeMemoryInput(new FileInputStream(file));
@@ -187,7 +248,22 @@ public class SerializationCompatTest extends KryoTestCase {
                     }
                 }
         );
-    }
+        kryo.getFieldSerializerConfig().setOptimizedGenerics(false);
+        runTests(
+                "unsafeMemory-nonopt-generics-" + ENDIANNESS,
+                new Function1<File, Input>() {
+                    public Input apply(File file) throws FileNotFoundException {
+                        return new UnsafeMemoryInput(new FileInputStream(file));
+                    }
+                },
+                new Function1<File, Output>() {
+                    public Output apply(File file) throws Exception {
+                        return new UnsafeMemoryOutput(new FileOutputStream(file));
+                    }
+                }
+        );
+  }
+
 
     private void runTests(String variant, Function1<File, Input> inputFactory, Function1<File, Output> outputFactory) throws Exception {
         for(TestDataDescription description : TEST_DATAS) {

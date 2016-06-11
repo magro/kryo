@@ -134,16 +134,22 @@ public class FieldSerializer<T> extends Serializer<T> implements Comparator<Fiel
 	}
 
 	protected FieldSerializer (Kryo kryo, Class type, Class[] generics, FieldSerializerConfig config) {
+		this.config = config;
 		this.kryo = kryo;
 		this.type = type;
-		this.generics = generics;
-		this.typeParameters = type.getTypeParameters();
-		if (this.typeParameters == null || this.typeParameters.length == 0)
-			this.componentType = type.getComponentType();
-		else
+		if (config.isOptimizedGenerics()) {
+			this.generics = generics;
+			this.typeParameters = type.getTypeParameters();
+			if (this.typeParameters == null || this.typeParameters.length == 0)
+				this.componentType = type.getComponentType();
+			else
+				this.componentType = null;
+			this.genericsUtil = new FieldSerializerGenericsUtil(this);
+		} else {
+			this.typeParameters = null;
 			this.componentType = null;
-		this.config = config;
-		this.genericsUtil = new FieldSerializerGenericsUtil(this);
+			this.generics = null;
+		}
 		this.unsafeUtil = FieldSerializerUnsafeUtil.Factory.getInstance(this);
 		this.annotationsUtil = new FieldSerializerAnnotationsUtil(this);
 		rebuildCachedFields();
@@ -169,13 +175,15 @@ public class FieldSerializer<T> extends Serializer<T> implements Comparator<Fiel
 
 		hasObjectFields = false;
 
-		// For generic classes, generate a mapping from type variable names to the concrete types
-		// This mapping is the same for the whole class.
-		Generics genScope = genericsUtil.buildGenericsScope(type, generics);
-		genericsScope = genScope;
+		if (config.isOptimizedGenerics()) {
+			// For generic classes, generate a mapping from type variable names to the concrete types
+			// This mapping is the same for the whole class.
+			Generics genScope = genericsUtil.buildGenericsScope(type, generics);
+			genericsScope = genScope;
 
-		// Push proper scopes at serializer construction time
-		if (genericsScope != null) kryo.getGenericsResolver().pushScope(type, genericsScope);
+			// Push proper scopes at serializer construction time
+			if (genericsScope != null) kryo.getGenericsResolver().pushScope(type, genericsScope);
+		}
 
 		List<Field> validFields;
 		List<Field> validTransientFields;
@@ -310,6 +318,7 @@ public class FieldSerializer<T> extends Serializer<T> implements Comparator<Fiel
 	}
 
 	public void setGenerics (Kryo kryo, Class[] generics) {
+		if (!config.isOptimizedGenerics()) return;
 		this.generics = generics;
 		if (typeParameters != null && typeParameters.length > 0) {
 			// There is no need to rebuild all cached fields from scratch.
@@ -331,10 +340,10 @@ public class FieldSerializer<T> extends Serializer<T> implements Comparator<Fiel
 
 	CachedField newCachedField (Field field, int fieldIndex, int accessIndex) {
 		Class[] fieldClass = new Class[] {field.getType()};
-		Type fieldGenericType = field.getGenericType();
+		Type fieldGenericType = (config.isOptimizedGenerics()) ? field.getGenericType() : null;
 		CachedField cachedField;
 
-		if (fieldGenericType == fieldClass[0]) {
+		if (!config.isOptimizedGenerics() || fieldGenericType == fieldClass[0]) {
 			// This is a field without generic type parameters
 			if (TRACE) trace("kryo", "Field " + field.getName() + ": " + fieldClass[0]);
 			cachedField = newMatchingCachedField(field, accessIndex, fieldClass[0], fieldGenericType, null);
@@ -374,7 +383,7 @@ public class FieldSerializer<T> extends Serializer<T> implements Comparator<Fiel
 			cachedField = getObjectFieldFactory().createCachedField(fieldClass, field, this);
 			if (fieldGenerics != null)
 				((ObjectField)cachedField).generics = fieldGenerics;
-			else {
+			else if (fieldGenericType != null) {
 				Class[] cachedFieldGenerics = FieldSerializerGenericsUtil.getGenerics(fieldGenericType, kryo);
 				((ObjectField)cachedField).generics = cachedFieldGenerics;
 				if (TRACE) trace("kryo", "Field generics: " + Arrays.toString(cachedFieldGenerics));

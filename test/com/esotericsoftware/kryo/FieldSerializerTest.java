@@ -392,6 +392,7 @@ public class FieldSerializerTest extends KryoTestCase {
 	
 	public void testGenericTypes () {
 		kryo = new Kryo();
+		kryo.getFieldSerializerConfig().setOptimizedGenerics(true);
 		kryo.setRegistrationRequired(true);
 		kryo.register(HasGenerics.class);
 		kryo.register(ArrayList.class);
