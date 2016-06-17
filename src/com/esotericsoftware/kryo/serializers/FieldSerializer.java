@@ -137,6 +137,7 @@ public class FieldSerializer<T> extends Serializer<T> implements Comparator<Fiel
 		this.config = config;
 		this.kryo = kryo;
 		this.type = type;
+		config.freezeOptimizedGenerics();
 		if (config.isOptimizedGenerics()) {
 			this.generics = generics;
 			this.typeParameters = type.getTypeParameters();
@@ -344,7 +345,7 @@ public class FieldSerializer<T> extends Serializer<T> implements Comparator<Fiel
 		CachedField cachedField;
 
 		if (!config.isOptimizedGenerics() || fieldGenericType == fieldClass[0]) {
-			// This is a field without generic type parameters
+			// For optimized generics this is a field without generic type parameters
 			if (TRACE) trace("kryo", "Field " + field.getName() + ": " + fieldClass[0]);
 			cachedField = newMatchingCachedField(field, accessIndex, fieldClass[0], fieldGenericType, null);
 		} else {

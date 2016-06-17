@@ -389,10 +389,18 @@ public class FieldSerializerTest extends KryoTestCase {
 		assertEquals("Default constructor should not be invoked with StdInstantiatorStrategy strategy", 0,
 			HasPrivateConstructor.invocations);
 	}
-	
-	public void testGenericTypes () {
-		kryo = new Kryo();
-		kryo.getFieldSerializerConfig().setOptimizedGenerics(true);
+
+	public void testGenericTypesOptimized() {
+		testGenericTypes(true);
+	}
+
+	public void testGenericTypesNonOptimized() {
+		testGenericTypes(false);
+	}
+
+	private void testGenericTypes(boolean optimizedGenerics) {
+		kryo.getFieldSerializerConfig().setOptimizedGenerics(optimizedGenerics);
+		kryo.setReferences(true);
 		kryo.setRegistrationRequired(true);
 		kryo.register(HasGenerics.class);
 		kryo.register(ArrayList.class);
@@ -419,8 +427,8 @@ public class FieldSerializerTest extends KryoTestCase {
 		test.list5 = new ArrayList();
 		test.list5.add("one");
 		test.list5.add("two");
-		roundTrip(53, 80, test);
-		ArrayList[] al = new ArrayList[1]; 
+		roundTrip(optimizedGenerics ? 53 : 56, optimizedGenerics ? 80 : 83, test);
+		ArrayList[] al = new ArrayList[1];
 		al[0] = new ArrayList(Arrays.asList(new String[] { "A", "B", "S" }));
 		roundTrip(18, 18, al);
 	}

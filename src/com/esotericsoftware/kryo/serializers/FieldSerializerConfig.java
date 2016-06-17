@@ -28,6 +28,7 @@ import static com.esotericsoftware.minlog.Log.trace;
  * use {@link Kryo#getFieldSerializerConfig()}, to configure a specific FieldSerializer instance use setters
  * for configuration settings on this specific FieldSerializer. */
 public class FieldSerializerConfig implements Cloneable {
+
     private boolean fieldsCanBeNull = true, setFieldsAsAccessible = true;
     private boolean ignoreSyntheticFields = true;
     private boolean fixedFieldTypes;
@@ -37,8 +38,9 @@ public class FieldSerializerConfig implements Cloneable {
     private boolean copyTransient = true;
     /** If set, transient fields will be serialized */
     private boolean serializeTransient = false;
-    /** Try to optimize handling of generics */
-    private boolean optimizedGenerics = true;
+    /** Try to optimize handling of generics for smaller size */
+    private boolean optimizedGenerics = false;
+    private boolean optimizedGenericsFrozen = false;
 
     private FieldSerializer.CachedFieldNameStrategy cachedFieldNameStrategy = FieldSerializer.CachedFieldNameStrategy.DEFAULT;
 
@@ -95,11 +97,21 @@ public class FieldSerializerConfig implements Cloneable {
         if (TRACE) trace("kryo.FieldSerializerConfig", "setUseAsm: " + setUseAsm);
     }
 
-    /** Controls if the serialization of generics should be optimized.
-     * @param setOptimizedGenerics If true, the serialization of generics will be optimize for smaller size (default) */
+    /** Controls if the serialization of generics should be optimized for smaller size.
+     * <p><strong>Important:</strong> This setting changes the serialized representation, so that data can be deserialized
+     * only with if this setting is the same as it was for serialization.</p>
+     * @param setOptimizedGenerics If true, the serialization of generics will be optimize for smaller size (default: false) */
     public void setOptimizedGenerics (boolean setOptimizedGenerics) {
+        if (optimizedGenericsFrozen && setOptimizedGenerics != optimizedGenerics)
+            throw new IllegalArgumentException("You're not allowed to change 'optimizedGenerics' because it's already" +
+                    "been used for state initialization and changing it afterwards would lead to wrong behaviour.");
         optimizedGenerics = setOptimizedGenerics;
         if (TRACE) trace("kryo.FieldSerializerConfig", "setOptimizedGenerics: " + setOptimizedGenerics);
+    }
+
+    /** After this as been called, optimizedGenerics cannot be changed anymore. */
+    void freezeOptimizedGenerics() {
+        optimizedGenericsFrozen = true;
     }
 
     /** If false, when {@link Kryo#copy(Object)} is called all transient fields that are accessible will be ignored from
