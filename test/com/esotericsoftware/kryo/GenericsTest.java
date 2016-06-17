@@ -82,6 +82,52 @@ public class GenericsTest extends KryoTestCase {
 		roundTrip(108, 108, cc1);
 	}
 
+	// Test for/from https://github.com/EsotericSoftware/kryo/issues/377
+	public void testDifferentTypeArguments() throws Exception {
+		LongHolder o1 = new LongHolder(1L);
+		LongListHolder o2 = new LongListHolder(Arrays.asList(1L));
+
+		kryo.setRegistrationRequired(false);
+		kryo.getFieldSerializerConfig().setOptimizedGenerics(false);
+		Output buffer = new Output(512, 4048);
+		kryo.writeClassAndObject(buffer, o1);
+		kryo.writeClassAndObject(buffer, o2);
+	}
+
+	private interface Holder<V> {
+		V getValue();
+	}
+
+	private static abstract class AbstractValueHolder<V> implements Holder<V> {
+		private final V value;
+
+		AbstractValueHolder(V value) {
+			this.value = value;
+		}
+
+		public V getValue() {
+			return value;
+		}
+	}
+
+	private static abstract class AbstractValueListHolder<V> extends AbstractValueHolder<List<V>> {
+		AbstractValueListHolder(List<V> value) {
+			super(value);
+		}
+	}
+
+	private static class LongHolder extends AbstractValueHolder<Long> {
+		LongHolder(Long value) {
+			super(value);
+		}
+	}
+
+	private static class LongListHolder extends AbstractValueListHolder<Long> {
+		LongListHolder(java.util.List<Long> value) {
+			super(value);
+		}
+	}
+
 	// A simple serializable class.
 	private static class SerializableObjectFoo implements Serializable {
 		String name;
