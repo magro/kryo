@@ -15,13 +15,6 @@
 		<dependency>
 			<groupId>com.esotericsoftware</groupId>
 			<artifactId>reflectasm</artifactId>
-			<classifier>shaded</classifier>
-			<exclusions>
-				<exclusion>
-					<groupId>org.ow2.asm</groupId>
-					<artifactId>asm</artifactId>
-				</exclusion>
-			</exclusions>
 		</dependency>
 	</dependencies>
 
